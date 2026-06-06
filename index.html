@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EDWOSB Readiness Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============ Editorial Luxury foundation ============ */
+:root{
+  --cream:#FBF6EE; --paper:#FFFDF8; --ink:#2B2118; --ink-soft:#6E5F4F; --ink-faint:#9A8C7B;
+  --sage:#5F6F52; --sage-deep:#3E4A34; --sage-tint:#ECF0E4;
+  --amber:#94660F; --amber-tint:#F8EFDB;
+  --rust:#963A2B; --rust-tint:#F7E8E3;
+  --hair:rgba(43,33,24,.10); --hair-strong:rgba(43,33,24,.16);
+  --ease:cubic-bezier(.32,.72,0,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+/* Stop mobile browsers (especially iOS Safari and in-app webviews) from
+   imposing their own default button chrome over our styled buttons, which
+   is what made the intro buttons render as a blank box on the phone. */
+button{-webkit-appearance:none; appearance:none; -webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  background:var(--cream); color:var(--ink);
+  font-family:'Plus Jakarta Sans',sans-serif; font-size:16px; line-height:1.65;
+  min-height:100dvh; padding:64px 24px 96px;
+}
+/* Film grain on a fixed, non-interactive layer so it never repaints on scroll */
+body::after{
+  content:""; position:fixed; inset:0; z-index:40; pointer-events:none; opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+}
+.wrap{max-width:780px;margin:0 auto}
+.eyebrow{
+  display:inline-block; border:1px solid var(--hair-strong); border-radius:999px;
+  padding:5px 14px; font-size:10px; font-weight:600; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-soft);
+}
+h1{
+  font-family:'Fraunces',serif; font-weight:500; font-size:clamp(34px,5.5vw,52px);
+  line-height:1.12; letter-spacing:-.01em; margin:22px 0 14px;
+}
+h1 em{font-style:italic; color:var(--sage-deep)}
+.lede{color:var(--ink-soft); font-size:17px; max-width:560px}
+header{margin-bottom:48px}
+
+/* ============ Double-bezel card: outer shell + inner core ============ */
+.shell{
+  background:rgba(43,33,24,.045); border:1px solid var(--hair); border-radius:30px; padding:8px;
+  box-shadow:0 30px 60px -36px rgba(43,33,24,.25);
+}
+.core{
+  background:var(--paper); border-radius:22px; padding:44px 48px;
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.8), inset 0 0 0 1px rgba(43,33,24,.04);
+}
+/* Entry animation: heavy fade-up with blur, re-triggered on every question change */
+.reveal{animation:rise .7s var(--ease) both}
+@keyframes rise{from{opacity:0; transform:translateY(22px); filter:blur(6px)} to{opacity:1; transform:none; filter:none}}
+/* If the device has Reduce Motion on (common), skip the entrance animation
+   entirely so content is simply visible rather than frozen mid-fade. */
+@media (prefers-reduced-motion: reduce){ .reveal, .notice{animation:none !important} }
+
+/* ============ Question UI ============ */
+.qmeta{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:8px}
+.count{font-size:12px; color:var(--ink-faint); letter-spacing:.06em}
+.bar{height:3px; background:rgba(43,33,24,.08); border-radius:99px; overflow:hidden; margin:14px 0 34px}
+.bar i{display:block; height:100%; background:var(--sage); border-radius:99px; transition:width .7s var(--ease)}
+.qtext{font-family:'Fraunces',serif; font-weight:500; font-size:clamp(22px,3.4vw,29px); line-height:1.25; margin-bottom:14px}
+.help{color:var(--ink-soft); font-size:15px; margin-bottom:26px}
+.help a{color:var(--sage-deep)}
+
+.opt{
+  display:flex; align-items:center; gap:14px; width:100%; text-align:left;
+  background:var(--paper); border:1px solid var(--hair-strong); border-radius:999px;
+  padding:15px 22px; margin-bottom:12px; font:inherit; font-weight:500; color:var(--ink);
+  cursor:pointer; transition:transform .45s var(--ease), background .45s var(--ease), border-color .45s var(--ease), box-shadow .45s var(--ease);
+}
+.opt:hover{transform:translateY(-1px); border-color:var(--sage); box-shadow:0 14px 30px -20px rgba(62,74,52,.5)}
+.opt:active{transform:scale(.985)}
+.opt .dot{width:18px; height:18px; border-radius:50%; border:1.5px solid var(--hair-strong); flex:none; transition:all .45s var(--ease)}
+.opt.sel{background:var(--sage-tint); border-color:var(--sage-deep)}
+.opt.sel .dot{border-color:var(--sage-deep); background:var(--sage-deep); box-shadow:inset 0 0 0 3.5px var(--sage-tint)}
+
+.notice{border-radius:18px; padding:18px 22px; font-size:14.5px; margin:6px 0 18px; animation:rise .6s var(--ease) both}
+.notice b{font-weight:600}
+.notice.stop{background:var(--rust-tint); color:#5E2419; border:1px solid rgba(150,58,43,.25)}
+.notice.warn{background:var(--amber-tint); color:#5C3F09; border:1px solid rgba(148,102,15,.25)}
+.notice.info{background:var(--sage-tint); color:var(--sage-deep); border:1px solid rgba(62,74,52,.22)}
+
+details.ws{border:1px solid var(--hair); border-radius:18px; margin-bottom:24px; background:rgba(236,240,228,.45)}
+details.ws summary{cursor:pointer; padding:14px 20px; font-weight:600; font-size:14px; color:var(--sage-deep); list-style:none}
+details.ws summary::before{content:"+ "; font-family:'Fraunces',serif}
+details.ws[open] summary::before{content:"− "}
+details.ws .wsbody{padding:0 20px 18px; font-size:14.5px; color:var(--ink-soft)}
+details.ws .wsbody p{margin-bottom:10px}
+
+.navrow{display:flex; justify-content:space-between; align-items:center; margin-top:30px}
+.back{background:none; border:none; font:inherit; font-size:14px; color:var(--ink-faint); cursor:pointer; padding:8px 4px; transition:color .4s var(--ease)}
+.back:hover{color:var(--ink)}
+/* Island CTA: pill button with the arrow nested in its own circular wrapper */
+.cta{
+  display:inline-flex; align-items:center; gap:12px; background:var(--ink); color:var(--cream);
+  border:none; border-radius:999px; padding:10px 10px 10px 26px; font:inherit; font-weight:600; font-size:15px;
+  cursor:pointer; transition:transform .5s var(--ease), opacity .5s var(--ease), box-shadow .5s var(--ease);
+  box-shadow:0 18px 36px -20px rgba(43,33,24,.55);
+}
+.cta .arr{width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.14); display:flex; align-items:center; justify-content:center; font-size:15px; transition:transform .5s var(--ease)}
+.cta:hover .arr{transform:translate(2px,-1px) scale(1.06)}
+.cta:active{transform:scale(.98)}
+.cta:disabled{opacity:.35; cursor:not-allowed; box-shadow:none}
+.cta.ghost{background:transparent; color:var(--ink); border:1px solid var(--hair-strong); box-shadow:none}
+.cta.ghost .arr{background:rgba(43,33,24,.06)}
+
+/* ============ Results ============ */
+.banner{border-radius:22px; padding:36px 40px; margin-bottom:10px}
+.banner.green{background:var(--sage-tint); border:1px solid rgba(62,74,52,.25)}
+.banner.amber{background:var(--amber-tint); border:1px solid rgba(148,102,15,.25)}
+.banner.red{background:var(--rust-tint); border:1px solid rgba(150,58,43,.25)}
+.banner.neutral{background:rgba(43,33,24,.045); border:1px solid var(--hair-strong)}
+.banner .vtag{font-size:10px; font-weight:600; letter-spacing:.22em; text-transform:uppercase; opacity:.7}
+.banner h2{font-family:'Fraunces',serif; font-weight:500; font-size:clamp(26px,4vw,36px); margin:8px 0 12px; line-height:1.15}
+.banner p{font-size:15.5px; max-width:600px}
+.sect{margin-top:34px}
+.sect>h3{font-family:'Fraunces',serif; font-weight:500; font-size:22px; margin-bottom:6px}
+.sect>.sub{color:var(--ink-soft); font-size:14.5px; margin-bottom:18px}
+.flagcard{border:1px solid var(--hair-strong); border-radius:18px; padding:20px 24px; margin-bottom:12px; background:var(--paper)}
+.flagcard h4{font-size:15.5px; font-weight:600; margin-bottom:4px}
+.flagcard p{font-size:14px; color:var(--ink-soft)}
+.flagcard .asset{display:inline-block; margin-top:10px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--sage-deep); background:var(--sage-tint); border-radius:999px; padding:4px 12px}
+.ckgroup{margin-bottom:18px; border:1px solid var(--hair); border-radius:18px; background:rgba(255,255,255,.4); overflow:hidden}
+.ghead{display:flex; width:100%; align-items:center; justify-content:space-between; gap:14px; padding:15px 20px; background:none; border:none; cursor:pointer; text-align:left; font:inherit}
+.ghead:hover{background:rgba(236,240,228,.45)}
+.ghead h4{margin:0}
+.gright{display:flex; align-items:center; gap:12px; flex-shrink:0}
+.gcount{font-size:12px; font-weight:600; color:var(--sage-deep); background:var(--sage-tint); border:1px solid rgba(62,74,52,.22); border-radius:999px; padding:4px 12px; white-space:nowrap}
+.chev{font-family:'Fraunces',serif; font-size:18px; color:var(--ink-faint); transition:transform .45s var(--ease)}
+.ckgroup.closed .chev{transform:rotate(-90deg)}
+.gbody{padding:2px 20px 16px}
+.ckgroup.closed .gbody{display:none}
+.secrow{margin:4px 0 16px}
+.ckgroup h4{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--sage-deep); border-bottom:1px solid var(--hair); padding-bottom:8px; margin-bottom:6px}
+.ck{display:flex; gap:14px; padding:13px 4px; border-bottom:1px solid var(--hair); align-items:flex-start}
+.ck:last-child{border-bottom:none}
+.ck .box{flex:none; width:21px; height:21px; margin-top:3px; border-radius:6px; border:1.5px solid var(--hair-strong); background:var(--paper); cursor:pointer; transition:all .4s var(--ease); position:relative}
+.ck.done .box{background:var(--sage-deep); border-color:var(--sage-deep)}
+.ck.done .box::after{content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--cream); font-size:13px}
+.ck .t{font-size:15px}
+.ck.done .t{color:var(--ink-faint); text-decoration:line-through; text-decoration-color:rgba(43,33,24,.3)}
+.ck .n{font-size:13px; color:var(--ink-faint); margin-top:2px}
+.lnks{margin-top:9px; display:flex; flex-wrap:wrap; gap:8px}
+.lnk{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:var(--sage-deep); background:var(--sage-tint); border:1px solid rgba(62,74,52,.25); border-radius:999px; padding:5px 14px; text-decoration:none; transition:transform .45s var(--ease), box-shadow .45s var(--ease)}
+.lnk:hover{transform:translateY(-1px); box-shadow:0 10px 20px -14px rgba(62,74,52,.55)}
+details.how{margin-top:10px; border:1px solid var(--hair); border-radius:14px; background:rgba(236,240,228,.4)}
+details.how summary{cursor:pointer; padding:9px 16px; font-size:12.5px; font-weight:600; color:var(--sage-deep); list-style:none}
+details.how summary::before{content:"+ "; font-family:'Fraunces',serif}
+details.how[open] summary::before{content:"− "}
+details.how ol{padding:2px 18px 14px 36px; font-size:13.5px; color:var(--ink-soft)}
+details.how li{margin-bottom:7px}
+.notebox{display:block; width:100%; margin-top:10px; font:inherit; font-size:13px; line-height:1.5; color:var(--ink); background:var(--cream); border:1px solid var(--hair); border-radius:12px; padding:8px 12px; resize:vertical; min-height:38px; transition:border-color .45s var(--ease)}
+.notebox:focus{outline:none; border-color:var(--sage)}
+.notebox::placeholder{color:var(--ink-faint)}
+.kitbody{padding:4px 16px 16px}
+.kitsub{font-size:12.5px; color:var(--ink-faint); margin:4px 0 12px}
+.pq{margin-bottom:10px}
+.pqlab{display:block; font-size:13px; font-weight:600; color:var(--ink-soft); margin-bottom:4px}
+.pqbox{display:block; width:100%; font:inherit; font-size:13px; line-height:1.5; color:var(--ink); background:var(--cream); border:1px solid var(--hair); border-radius:12px; padding:8px 12px; resize:vertical; min-height:38px; transition:border-color .45s var(--ease)}
+.pqbox:focus{outline:none; border-color:var(--sage)}
+.pqbox::placeholder{color:var(--ink-faint)}
+.copyrow{display:flex; align-items:center; gap:12px; margin-top:8px; flex-wrap:wrap}
+.copyfb{font-size:12.5px; color:var(--sage-deep); font-weight:600}
+.legal{font-size:12.5px; color:var(--ink-faint); border-top:1px solid var(--hair); margin-top:40px; padding-top:20px}
+.legal p{margin-bottom:10px}
+footer{max-width:780px; margin:28px auto 0; text-align:center; font-size:12px; color:var(--ink-faint)}
+
+@media(max-width:768px){
+  body{padding:36px 16px 72px}
+  .core{padding:30px 22px}
+  .banner{padding:26px 22px}
+}
+@media print{
+  body{background:#fff; padding:0; font-size:12px}
+  body::after, .noprint, footer{display:none !important}
+  details.how{display:none}
+  .lnk{background:none; border:none; padding:0}
+  .lnk::after{content:" (" attr(href) ")"; font-weight:400; font-size:10px}
+  .notebox{display:none}
+  .notebox.has-note{display:block; border:1px solid #bbb; resize:none}
+  .ckgroup{border:none; background:none; overflow:visible}
+  .ckgroup.closed .gbody{display:block}
+  .ghead{padding:0 0 6px}
+  .chev{display:none}
+  .gcount{border:1px solid #bbb; background:none}
+  .shell{background:none; border:none; box-shadow:none; padding:0; border-radius:0}
+  .core{box-shadow:none; padding:0; border-radius:0}
+  .banner{border-radius:0}
+  .ck{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="noprint">
+    <span class="eyebrow">EDWOSB Readiness Engine · Private &amp; Offline</span>
+    <h1>Find out exactly <em>where you stand.</em></h1>
+    <p class="lede">A guided assessment for women-owned businesses preparing for SBA WOSB and EDWOSB certification. Honest verdicts, a checklist built for your exact situation, and zero data collected.</p>
+  </header>
+  <div class="shell"><div class="core" id="app"></div></div>
+</div>
+<footer>This tool organizes and prepares. It does not determine eligibility, guarantee certification, or provide legal advice.</footer>
+
+<script>
+"use strict";
+/* =====================================================================
+   ENGINE OVERVIEW
+   Three stages drive everything:
+     - Gates  (Stage 1): hard pass/fail; a failure produces NOT YET.
+     - Flags  (Stage 2): risks that downgrade to Borderline + attach prep assets.
+     - Profile(Stage 3): never judge; they only shape the checklist.
+   All routing lives in the QUESTIONS array below. The verdict and the
+   checklist are recomputed from scratch from `state.answers` so that
+   back-navigation and changed answers can never leave stale state.
+   Progress (answers, checkmarks, notes) persists in localStorage on the
+   user's own device when available; nothing is ever transmitted.
+===================================================================== */
+
+/* ---------- Flag registry: one card per fired risk on the results page ---------- */
+const FLAGS = {
+  F1:{title:"Outside Employment", risk:"SBA presumes a lack of control if the qualifying owner devotes fewer hours to this business than its normal operating hours, and the January 2025 rule requires demonstrating that outside work does not impede her control. Her resume dates and this narrative must match exactly; analysts cross-check both, and public sources like LinkedIn.", asset:"Outside Employment Narrative Template"},
+  F2:{title:"Higher-Paid Non-Woman", risk:"SBA presumes the highest-compensated person controls the firm. Two defenses are recognized: a written, commercially reasonable justification for the specialist's pay, or documentation that the owner elected lower compensation for the firm's benefit.", asset:"Compensation Justification Note"},
+  F3:{title:"Governance Veto Power", risk:"This is the single most common technical denial. Non-qualifying owners may hold veto power only over a short list of extraordinary events (new equity holders, dissolution, sale of substantially all assets, merger, bankruptcy). Broader vetoes, unanimous-consent rules, or defeatable quorums break unconditional control.", asset:"Governance Audit Checklist"},
+  F4:{title:"Spouse Involvement", risk:"Because the spouse has a role in, has lent to, or has guaranteed credit for the business (or works a similar line of business), SBA will weigh his finances when assessing the owner's access to capital and credit. This does not disqualify; it raises the documentation bar.", asset:"Spouse Disclosure Prep Note"},
+  F5:{title:"Two-Year Look-Back Transfer", risk:"Assets transferred to immediate family (or trusts benefiting them) within two years of applying are attributed back to the owner's net worth and asset totals, unless the transfer was for education, medical care, essential support, or a customary special occasion.", asset:"Transfer Documentation Note"},
+  F6:{title:"Recent Ownership Change", risk:"Analysts trace the full chain of custody of equity. Ownership changes require executed buy-sell or transfer agreements showing the valuation method and proof of payment, and any mismatch with portal entries triggers a written explanation.", asset:"Chain-Of-Custody Narrative Template"},
+  F7:{title:"Franchise Affiliation Risk", risk:"A franchise agreement that controls pricing, hiring, or operations can make the franchisor an affiliate, attributing its size to your business and defeating the small-business requirement. The agreement should be reviewed before applying.", asset:"Franchise Agreement Review Note"},
+  F8:{title:"Non-Commercial Loans", risk:"Loans from family, former partners, or other non-bank sources on the financial statements require a narrative covering terms, origination dates, and current repayment status.", asset:"Non-Commercial Loan Explanation Template"},
+  SIZE:{title:"Size Standard Unverified", risk:"Eligibility requires being small under your primary NAICS code. Complete the Size Self-Check before applying: five-year average receipts (or the weekly method if younger than five years), including all affiliates.", asset:"Size Self-Check Worksheet"},
+  NEAR:{title:"Near An Economic Threshold", risk:"One or more answers were close to an EDWOSB limit. Assemble your financial documentation with extra care; the figures on Form 413 are cross-checked against tax returns line by line.", asset:"Threshold Documentation Guidance"}
+};
+
+/* ---------- Reusable worksheet accordions for the economic gates ---------- */
+const WS = {
+  E1:`<p><b>Net Worth Worksheet (do this privately; enter nothing here).</b></p>
+      <p>1. Total everything you own. 2. Subtract everything you owe. 3. Then subtract three exclusions, in order: your equity in <i>this</i> business; the equity in your <i>primary</i> residence only (rentals and vacation homes count against you); and funds in qualified retirement accounts (you will later need the account terms proving an early-withdrawal penalty).</p>
+      <p>Pass-through note: distributions from this business used solely to pay the taxes it generated, or reinvested into it, can be excluded with proof (K-1s and ledgers).</p>`,
+  E2:`<p><b>Income Averaging Worksheet.</b></p>
+      <p>Write down the adjusted gross income from each of your last three filed federal returns and average them. Distributions from this business used solely to pay its taxes, or reinvested, may be excluded, but only with documentary proof. If your average runs over from a one-time event (an inheritance, an unusual asset sale), SBA allows a rebuttal, though the burden is high.</p>`,
+  E3:`<p><b>Total Assets Worksheet.</b></p>
+      <p>This is the gross test: add the fair market value of everything you own, <i>including</i> your home and this business at full market value, whether mortgaged or not. Debt does not reduce this number. Only qualified retirement funds are excluded.</p>`
+};
+
+/* ---------- The question array: every screen, branch, and routing rule ---------- */
+/* show(s) controls visibility from current answers; notice(v,s) returns inline feedback. */
+const QUESTIONS = [
+ {id:"T1", stage:"Getting Started", q:"Which certification are you exploring?",
+  help:"EDWOSB adds personal financial criteria on top of WOSB but unlocks a wider set of restricted contracts. If you are not sure, choose EDWOSB and this assessment will sort it out honestly.",
+  options:[{l:"EDWOSB (or not sure yet)",v:"edwosb"},{l:"WOSB only",v:"wosb"}]},
+
+ {id:"G1", stage:"Eligibility Gates", q:"Is your business at least 51% owned by one or more women, directly, as individuals?",
+  help:"\u201CDirectly\u201D means the women personally hold the equity. Ownership through a holding company, another LLC, or a corporate parent does not count, even if a woman owns that entity completely. One exception: a revocable living trust where she is grantor, sole trustee, and sole current beneficiary.",
+  options:[{l:"Yes, held directly by the women",v:"yes"},{l:"No, or it is held through another entity",v:"no"}],
+  gate:{failOn:["no"], reason:"13 CFR 127.201 requires direct, unconditional 51% ownership by women as individuals.", remedy:"Restructure so the qualifying women hold the equity personally, then reassess."},
+  notice:(v)=> v==="no" ? {tone:"stop", html:"<b>As answered, this would currently fail.</b> The rules require the women to hold the equity personally (13 CFR 127.201). Keep going to see the full picture; your summary will include the remedy."} : null},
+
+ {id:"G2", stage:"Eligibility Gates", q:"Are all of the women whose ownership counts toward the 51% United States citizens?",
+  help:"Full U.S. citizenship is required. Permanent residents (green card holders) and visa holders cannot contribute to the 51%, even as co-owners.",
+  options:[{l:"Yes, all are U.S. citizens",v:"yes"},{l:"No",v:"no"}],
+  gate:{failOn:["no"], reason:"13 CFR 127.200(b) requires the qualifying women to be U.S. citizens.", remedy:"The 51% must be reachable using citizen women only; recalculate whether the remaining citizen owners clear 51%."},
+  notice:(v)=> v==="no" ? {tone:"stop", html:"<b>As answered, this would currently fail.</b> The 51% must be met entirely by U.S.-citizen women (13 CFR 127.200(b))."} : null},
+
+ {id:"G3", stage:"Eligibility Gates", q:"Does a woman hold the highest officer position and make both the day-to-day and long-term decisions?",
+  help:"CEO, President, or Managing Member. She does not need the technical licenses the business uses, but she must have ultimate authority over the people who hold them.",
+  options:[{l:"Yes",v:"yes"},{l:"No",v:"no"}],
+  gate:{failOn:["no"], reason:"13 CFR 127.202 requires a qualifying woman to hold the highest officer position and control management.", remedy:"Formally appoint a qualifying woman to the highest officer position via resolution, documented in meeting minutes."},
+  notice:(v)=> v==="no" ? {tone:"stop", html:"<b>As answered, this would currently fail.</b> A woman must hold the highest officer position and control the firm (13 CFR 127.202)."} : null},
+
+ {id:"G4", stage:"Eligibility Gates", q:"Is your business small under the SBA size standard for your primary NAICS code?",
+  help:"For most service businesses this is a revenue test: average annual receipts over the last five completed fiscal years versus your code\u2019s threshold (look it up at <a href='https://www.sba.gov/federal-contracting/contracting-guide/size-standards' target='_blank' rel='noopener'>sba.gov size standards</a>). Younger than five years: divide total receipts by weeks in business, multiply by 52. Count affiliates, including family businesses in the same line and franchisors with heavy operational control.",
+  options:[{l:"Yes, comfortably under the threshold",v:"yes"},{l:"Not sure, I need to run the numbers",v:"unsure"},{l:"No, we exceed it",v:"no"}],
+  gate:{failOn:["no"], reason:"13 CFR Part 121 requires the firm to be small under its primary NAICS code.", remedy:"Verify your five-year average and affiliation picture; if genuinely over, the program is not available at the current size."},
+  flagOn:{values:["unsure"], flag:"SIZE"},
+  notice:(v)=> v==="no" ? {tone:"stop", html:"<b>As answered, this would currently fail.</b> The firm must be small under its primary NAICS code (13 CFR Part 121)."} :
+            v==="unsure" ? {tone:"warn", html:"No problem. Your results will include the <b>Size Self-Check Worksheet</b> so you can verify before applying."} : null},
+
+ /* ---- Economic gates: shown only on the EDWOSB track; an \u201Cabove\u201D answer
+        reroutes everything downstream to the WOSB-only lane. ---- */
+ {id:"E1", stage:"Economic Criteria", q:"After the exclusions, is the qualifying woman\u2019s personal net worth below $850,000?",
+  help:"Open the worksheet below and do this math privately. Your dollar figures are never typed into this page and never saved anywhere; only your below-or-above answer is kept, on this device alone.", ws:"E1",
+  options:[{l:"Below $850,000",v:"below"},{l:"Close to the line (within ~10%)",v:"close"},{l:"Above $850,000",v:"above"}],
+  show:(s)=>track(s)==="EDWOSB", econ:true,
+  notice:econNotice},
+
+ {id:"E2", stage:"Economic Criteria", q:"Is her adjusted gross income, averaged over the three most recent tax years, at or below $400,000?",
+  help:"Use the worksheet for the averaging method and the pass-through exclusion.", ws:"E2",
+  options:[{l:"At or below $400,000",v:"below"},{l:"Close to the line",v:"close"},{l:"Above $400,000",v:"above"}],
+  show:(s)=>track(s)==="EDWOSB" && !econFailed(s,"E2"), econ:true,
+  notice:econNotice},
+
+ {id:"E3", stage:"Economic Criteria", q:"Is the fair market value of everything she owns at or below $6.5 million?",
+  help:"This is the gross test: home and business included at full value, debt ignored. The worksheet walks through it.", ws:"E3",
+  options:[{l:"At or below $6.5 million",v:"below"},{l:"Close to the line",v:"close"},{l:"Above $6.5 million",v:"above"}],
+  show:(s)=>track(s)==="EDWOSB" && !econFailed(s,"E3"), econ:true,
+  notice:econNotice},
+
+ /* ---- Stage 2 flags ---- */
+ {id:"F1", stage:"Risk Check", q:"Does the qualifying woman hold any outside job, or own or help run any other business?",
+  help:"This does not disqualify, but it is one of the most common denial patterns, so it gets dedicated preparation.",
+  options:[{l:"Yes",v:"yes"},{l:"No",v:"no"}], flagOn:{values:["yes"], flag:"F1"},
+  notice:(v)=> v==="yes" ? {tone:"info", html:"Good to know early. Your results will include the <b>Outside Employment Narrative Template</b>, the portal field where most of these applications are won or lost."} : null},
+
+ {id:"F2", stage:"Risk Check", q:"Does anyone in the business who is not a qualifying woman earn more in total compensation than she does?",
+  help:"Salary, bonus, and distributions all count. SBA presumes the highest-paid person controls the firm.",
+  options:[{l:"Yes",v:"yes"},{l:"No",v:"no"}], flagOn:{values:["yes"], flag:"F2"},
+  notice:(v)=> v==="yes" ? {tone:"info", html:"Manageable, with paperwork. Your results will include the <b>Compensation Justification Note</b> covering the two recognized defenses."} : null},
+
+ {id:"F3", stage:"Risk Check", q:"Do your governing documents give anyone other than the qualifying women the power to block ordinary business decisions?",
+  help:"Look for unanimous-consent requirements, supermajority votes, or quorum rules a minority owner can defeat. Investor vetoes are allowed only for a short list of extraordinary events.",
+  options:[{l:"Yes",v:"yes"},{l:"Not sure, I would need to check",v:"unsure"},{l:"No",v:"no"}], flagOn:{values:["yes","unsure"], flag:"F3"},
+  notice:(v)=> (v==="yes"||v==="unsure") ? {tone:"warn", html:"This is the single most common technical denial reason, so it is worth fixing before applying. Your results will include the <b>Governance Audit Checklist</b>."} : null},
+
+ {id:"F4a", stage:"Risk Check", q:"Is the qualifying woman married and not legally separated?",
+  help:"If yes, her spouse completes his own SBA Form 413; that part is automatic and not a problem. The follow-up question matters more.",
+  options:[{l:"Yes",v:"yes"},{l:"No",v:"no"}],
+  show:(s)=>track(s)==="EDWOSB" && !anyEconFail(s)},
+
+ {id:"F4b", stage:"Risk Check", q:"Does her spouse have a role in the business, has he lent it money or guaranteed its credit, or does he run a business in a similar line of work?",
+  help:"Any of these leads SBA to weigh his finances in assessing her access to capital and credit.",
+  options:[{l:"Yes, at least one of those",v:"yes"},{l:"No, none of those",v:"no"}], flagOn:{values:["yes"], flag:"F4"},
+  show:(s)=>track(s)==="EDWOSB" && !anyEconFail(s) && s.answers.F4a==="yes",
+  notice:(v)=> v==="yes" ? {tone:"info", html:"Not disqualifying, but it raises the documentation bar. Your results will include the <b>Spouse Disclosure Prep Note</b>."} : null},
+
+ {id:"F5", stage:"Risk Check", q:"In the last two years, has she transferred any assets to an immediate family member, or to a trust benefiting one?",
+  help:"SBA attributes recent transfers back to her totals unless they fit a narrow set of exceptions.",
+  options:[{l:"Yes",v:"yes"},{l:"No",v:"no"}], flagOn:{values:["yes"], flag:"F5"},
+  show:(s)=>track(s)==="EDWOSB" && !anyEconFail(s),
+  notice:(v)=> v==="yes" ? {tone:"warn", html:"The two-year look-back will attribute those assets back to her unless an exception applies. Your results will include the <b>Transfer Documentation Note</b>."} : null},
+
+ {id:"F6", stage:"Risk Check", q:"Has the ownership of the business changed in the last two years?",
+  help:"Analysts trace the full chain of custody of equity from formation to today.",
+  options:[{l:"Yes",v:"yes"},{l:"No",v:"no"}], flagOn:{values:["yes"], flag:"F6"},
+  notice:(v)=> v==="yes" ? {tone:"info", html:"Your checklist will add the executed transfer agreements and the <b>Chain-Of-Custody Narrative Template</b>."} : null},
+
+ {id:"F7", stage:"Risk Check", q:"Is the business a franchise?",
+  help:"Heavy franchisor control can create affiliation, which counts the franchisor\u2019s size as yours.",
+  options:[{l:"Yes",v:"yes"},{l:"No",v:"no"}], flagOn:{values:["yes"], flag:"F7"},
+  notice:(v)=> v==="yes" ? {tone:"warn", html:"The franchise agreement should be reviewed for affiliation risk before applying. Your results will include the <b>Franchise Agreement Review Note</b>."} : null},
+
+ {id:"F8", stage:"Risk Check", q:"Do the business\u2019s financial statements include loans from family, former partners, or anyone other than a bank or commercial lender?",
+  help:"These are fine, but each one needs a short written explanation in the portal.",
+  options:[{l:"Yes",v:"yes"},{l:"No",v:"no"}], flagOn:{values:["yes"], flag:"F8"},
+  show:(s)=>track(s)==="EDWOSB" && !anyEconFail(s),
+  notice:(v)=> v==="yes" ? {tone:"info", html:"Your results will include the <b>Non-Commercial Loan Explanation Template</b>."} : null},
+
+ /* ---- Stage 3 profile: pure checklist drivers ---- */
+ {id:"P1", stage:"Your Checklist", q:"What is the business\u2019s legal entity type?",
+  help:"Answer with the entity\u2019s legal filing status, not its tax election nickname. Inside the SBA portal this same selection drives the upload requirements, and an incorrect choice forces a restart.",
+  options:[{l:"Sole Proprietorship",v:"sp"},{l:"Single-Member LLC",v:"smllc"},{l:"Multi-Member LLC",v:"mmllc"},{l:"S Corporation",v:"scorp"},{l:"C Corporation",v:"ccorp"},{l:"Partnership",v:"pship"}]},
+
+ {id:"P2", stage:"Your Checklist", q:"Does the qualifying woman\u2019s current legal name match her citizenship document exactly?",
+  help:"Marriage and divorce are the usual reasons these differ.",
+  options:[{l:"Yes, exact match",v:"yes"},{l:"No",v:"no"}]},
+
+ {id:"P3", stage:"Your Checklist", q:"What is the status of the business\u2019s SAM.gov registration?",
+  help:"SAM.gov is the federal vendor database everything else connects to. Registration is free; ignore third parties charging for it.",
+  options:[{l:"Active and updated within 12 months",v:"active"},{l:"Active but not updated in over a year",v:"stale"},{l:"Expired",v:"expired"},{l:"Never registered",v:"never"}]},
+
+ {id:"P3b", stage:"Your Checklist", q:"Does someone currently hold Entity Administrator access to that SAM.gov registration who can approve your access?",
+  help:"If yes, no notarized letter is needed. The letter is required only when nobody with administrator access can approve you.",
+  options:[{l:"Yes",v:"yes"},{l:"No, or I have no idea who the administrator is",v:"no"}],
+  show:(s)=> s.answers.P3 && s.answers.P3!=="never",
+  notice:(v)=> v==="no" ? {tone:"info", html:"Your checklist will include the <b>notarized Entity Administrator letter</b> step. Most applicants never need it; you are in the exception case."} : null},
+
+ {id:"P4", stage:"Your Checklist", q:"Is the business a current 8(a) program participant owned and controlled by women?",
+  help:"The two programs share identical economic criteria, so current 8(a) firms get a major shortcut.",
+  options:[{l:"Yes",v:"yes"},{l:"No",v:"no"}],
+  show:(s)=>track(s)==="EDWOSB" && !anyEconFail(s),
+  notice:(v)=> v==="yes" ? {tone:"info", html:"Excellent. Your entire financial package collapses to one document: the most recent 8(a) annual review letter."} : null},
+
+ {id:"P5", stage:"Your Checklist", q:"Do you also want private-sector supplier diversity recognition (corporate WBE programs)?",
+  help:"Applying directly through SBA is free. Third-party certifiers charge fees but can grant a corporate WBE certification (recognized by Fortune 500 supplier diversity programs) and the federal certification in one process.",
+  options:[{l:"Federal contracts only, free SBA path",v:"sba"},{l:"Yes, I want corporate doors open too",v:"tpc"}]},
+
+ {id:"P6", stage:"Your Checklist", q:"Do you live in a community property state and have any transmutation or separate-property agreements?",
+  help:"States like California, Texas, Arizona, and Washington. These agreements, if they exist, get uploaded with the financial package.",
+  options:[{l:"Yes, agreements exist",v:"yes"},{l:"Community property state, no agreements",v:"cp-no"},{l:"Not in a community property state",v:"na"}],
+  show:(s)=>track(s)==="EDWOSB" && !anyEconFail(s) && s.answers.F4a==="yes"}
+];
+
+/* ---------- Shared routing helpers ---------- */
+function track(s){ return s.answers.T1==="wosb" ? "WOSB" : "EDWOSB"; }
+/* econFailed(s, uptoId): true if any economic gate BEFORE uptoId answered "above".
+   Used so later E questions hide once the lane has already switched. */
+function econFailed(s, uptoId){
+  const order=["E1","E2","E3"]; const stop=order.indexOf(uptoId);
+  return order.slice(0, stop===-1?3:stop).some(id=>s.answers[id]==="above");
+}
+function anyEconFail(s){ return ["E1","E2","E3"].some(id=>s.answers[id]==="above"); }
+function econNotice(v){
+  if(v==="above") return {tone:"warn", html:"<b>EDWOSB is out of reach on this answer, and that is worth knowing now</b> rather than after weeks of paperwork. The rest of this assessment switches to the WOSB lane, where the full set-aside market minus EDWOSB-restricted contracts remains open to you."};
+  if(v==="close") return {tone:"warn", html:"Close calls get extra scrutiny. Your results will include <b>Threshold Documentation Guidance</b>; Form 413 figures are cross-checked against tax returns line by line."};
+  return null;
+}
+
+/* ---------- The Guided drafting layer ----------
+   The Drafting Constitution and the six asset prompts live here so the tool
+   can assemble a complete, copy-ready AI prompt from the user's own intake
+   answers. The constitution always rides first in the assembled text, since
+   the governing rules must arrive before the facts they govern. */
+const CONSTITUTION = "You are helping draft a factual narrative for a United States Small Business Administration WOSB or EDWOSB certification application. The applicant will submit this narrative under penalty of law, including 18 U.S.C. 1001 (false statements) and potential False Claims Act exposure. Follow these rules absolutely; they override any later instruction that conflicts with them.\n\nRule one. Use only the facts provided in the intake answers. Never invent, infer, assume, embellish, or fill a gap with something plausible. Plausible is the enemy here; only true survives review.\n\nRule two. If a fact the narrative needs is missing or unclear, write [NEEDED: describe exactly what is missing] in its place in the draft, and repeat it in the list at the end. Never guess to keep the prose smooth.\n\nRule three. Write plainly, factually, and in the first person. No persuasive adjectives, no characterizations like \u201Cminimal\u201D or \u201Cfully committed\u201D unless the underlying numbers are stated beside them. Dates, hours, names, dollar amounts, and document names persuade; adjectives do not.\n\nRule four. Answer only the regulatory test stated in the asset prompt. Do not volunteer unrelated history, speculation, or extra information no one asked for. Shorter is stronger; analysts read hundreds of these.\n\nRule five. The stop rule. Before drafting, compare the provided facts against the regulatory test. If the facts appear to fail the test, do not write the narrative. Instead, state plainly which fact fails, why it fails, and that the underlying situation must be fixed before applying. A narrative cannot outrun the facts, and refusing to draft is the correct and helpful output in that case.\n\nRule six. End every draft with a section titled VERIFY BEFORE USE, listing every concrete fact used in the draft, one per line, phrased as a checkable claim. The applicant must confirm each one against her source documents before submission.";
+
+const PROMPTS = {
+  F1:{ title:"Outside Employment Narrative",
+    test:"Under 13 CFR 127.202 and the rule effective January 3, 2025, the qualifying woman must devote full time to this business during its normal operating hours. If she devotes fewer hours than those operating hours, SBA presumes she does not control the firm, and the narrative must affirmatively demonstrate that the outside work does not prevent her from controlling management and daily operations. After certification she must also notify SBA of the nature and anticipated duration of outside employment, so the narrative should state both. The analyst\u2019s real question: when this business needs a decision during business hours, is she the one making it?",
+    intake:["Her title at this business.","This business\u2019s normal operating hours, by day and time.","The hours per week she devotes to this business, and when.","The outside organization, her role there, and whether she owns it or is employed.","The hours per week the outside work requires, and exactly when it is performed.","How the two schedules coexist in practice.","Who, if anyone, handles routine tasks at this business, which tasks by name, and the rule for what gets referred to her.","The decisions that remain hers alone at all times.","The anticipated duration of the outside engagement, with an end date if one exists.","Confirmation that all dates and roles match her resume and public profiles."],
+    draft:"Open by naming the outside engagement precisely, because vagueness reads as concealment. Then state this business\u2019s operating hours and her hours side by side so the analyst can do the math the applicant has already done. Show when the outside work happens relative to business hours, name the retained decision authority, name what any staff handle and the referral rule, and close with the anticipated duration. One paragraph, two at most. End with the line confirming the employment dates match the attached resume.",
+    stops:"If the outside work\u2019s stated hours substantially overlap this business\u2019s operating hours and the intake answers contain no facts showing how she remains the decision-maker during that overlap, stop and say so. If the answers state or imply that a subordinate \u201Cruns things\u201D while she is away, stop, because that concedes the control question. If her stated hours in this business are fewer than its operating hours, the presumption against her applies, and the draft must confront it with facts or, if none exist, you must stop." },
+  F2:{ title:"Compensation Justification",
+    test:"SBA presumes the highest-compensated person controls the firm. Exactly two defenses exist: the higher pay is commercially reasonable for a specialist role, or the qualifying woman elected lower compensation for the firm\u2019s benefit, documented in writing. The analyst\u2019s question: does the pay gap reveal who is really in charge?",
+    intake:["Which defense is actually true: specialist market pay, elected lower compensation, or honestly neither.","For the specialist path: the person\u2019s name, ownership percentage if any, role, the credentials or licenses the role requires, and the market evidence for the pay (named source, offer letter, replacement cost).","For the election path: the business reason for taking lower pay, the document where the election is recorded with its date, and whether the election is temporary or ongoing.","Either path: the governing document section confirming that all management, financial, and strategic authority remains hers, and whether the higher-paid person holds any veto, board seat, or signing authority."],
+    draft:"Draft only the path the applicant identified as true: name the person and role, state the defense with its documentation, and close by locating her unchanged authority in the governing documents. Do not state exact compensation figures unless provided; the portal collects those separately.",
+    stops:"If the applicant answered \u201Chonestly neither\u201D to the first question, stop; there is no third defense, and the underlying compensation arrangement must change before applying. If the answers reveal that the higher-paid person also holds veto power, a controlling board position, or unilateral signing authority, stop and explain that this is a control problem under the governance rules, which a compensation narrative cannot fix." },
+  F4:{ title:"Spouse Disclosure Preparation",
+    test:"Under 13 CFR 127.203, a married applicant\u2019s spouse submits his own Form 413 regardless of involvement, and SBA weighs his finances in assessing her access to capital and credit when he has a role in the business, has lent to it, has guaranteed its credit, or operates a similar business. This asset is not advocacy; it is an organized, complete disclosure that lets the analyst learn everything from the applicant rather than discovering it in the documents.",
+    intake:["The spouse\u2019s role in the business, if any, described concretely: title, tasks, hours, signing authority on any account.","Every loan he has made to the business or to her for the business: amount, date, written or informal, terms, current balance.","Every guarantee or co-signature on business credit: the instrument, the lender, the date.","If he operates a similar business: its name, line of work, and a factual statement of what is and is not shared between the two firms (space, equipment, employees, websites, clients)."],
+    draft:"Produce a disclosure summary organized by category, stating each fact plainly with its documentation named. Where a loan is informal, note that a written summary of terms signed by both parties accompanies the package. The tone is inventory, not argument; completeness is the persuasion.",
+    stops:"There is no disqualifying fact pattern here, because spousal involvement is scrutinized, not prohibited. The only failure mode is minimization, so if any intake answer is vague (for example, \u201Che helps out sometimes\u201D), mark it [NEEDED: concrete description of tasks and hours] rather than smoothing it into something tidy." },
+  F5:{ title:"Transfer Documentation Note",
+    test:"EDWOSB applies a two-year look-back: assets transferred to immediate family or family trusts within two years of applying are attributed back to the woman\u2019s net worth and total assets unless the transfer was for a family member\u2019s education, medical expenses, essential support, or a customary special occasion. The analyst\u2019s question: was wealth moved to get under the thresholds?",
+    intake:["For each transfer in the window: the date, the recipient and relationship, the asset, and its fair market value at the time of transfer.","The purpose of each transfer, and which recognized exception it fits, if any.","The evidence tying each transfer to its exception: tuition invoices, medical bills, support documentation, or the occasion.","The result of re-running the Net Worth and Total Assets worksheets with every non-excepted transfer added back: still under both limits, or over either one."],
+    draft:"For each transfer that fits an exception, draft one short paragraph: date, recipient, asset, value, purpose, exception, evidence. The collection of paragraphs becomes the documentation note that heads off a request for information.",
+    stops:"If the final intake answer is \u201Cover either one,\u201D stop and state the off-ramp: the EDWOSB application should not proceed on these facts, and the honest paths are the WOSB lane or waiting until the look-back window has genuinely passed. If a transfer fits no exception but the applicant remains under the limits with it added back, say that documenting it candidly is fine and the math protects her. Never draft language that recharacterizes a threshold-motivated transfer as something it was not." },
+  F6:{ title:"Chain-Of-Custody Narrative",
+    test:"Analysts trace every equity event from formation to today and reconcile the result against the percentages entered in the portal. For purchases they look for the valuation method and proof that money actually moved. The question: is the women\u2019s 51 percent real, unconditional, and not parked to qualify?",
+    intake:["Formation date and the initial ownership split with names and percentages.","For every subsequent equity event in order: the date, the parties, the instrument and its date, the consideration paid, the valuation method, and the proof of payment (wire date, check number).","The current ownership table, summing to 100 percent.","Confirmation that the current table matches the stock ledger or membership schedule and the portal entries exactly."],
+    draft:"Tell the equity story chronologically using one sentence per event: date, parties, instrument, consideration, valuation, proof. Close by stating the current capitalization and its consistency with the ledger and the portal.",
+    stops:"If any transfer lacks proof of payment, do not smooth past it; insert [NEEDED: proof of payment for that transfer] and flag that an unproven transfer reads as a paper transfer. If the final answer reveals any mismatch between the table, the ledger, and the portal, stop and instruct reconciliation first, because the narrative cannot resolve a numbers conflict. If the history shows a recent transfer to the qualifying woman with no consideration shortly before applying, draft nothing persuasive about it; state the facts exactly and note that this pattern receives scrutiny." },
+  F8:{ title:"Non-Commercial Loan Explanations",
+    test:"Loans from family, former partners, or other non-bank sources must be real loans with real terms, because they affect the firm\u2019s financial picture and, on the EDWOSB side, the assessment of access to capital and credit. An undocumented loan that behaves like a gift distorts the net worth math in ways the analyst will notice.",
+    intake:["For each loan: the lender\u2019s name and relationship to her.","The original amount, the date, and the purpose.","Whether a written note exists, and the terms either way: interest rate or none, repayment schedule, maturity or on-demand.","The current balance and the plain payment history.","Her honest answer to one question: was this truly a loan both parties expect repaid, or was it in substance a gift?"],
+    draft:"Draft one short block per loan: lender and relationship, amount and date and purpose, documentation status and terms, balance and history. Where no written note exists, include the line stating that a written summary of terms signed by both parties is attached, and add [NEEDED: signed written summary] until the applicant confirms it exists.",
+    stops:"If the honest answer to the final question is \u201Cin substance a gift,\u201D stop drafting a loan explanation, because relabeling changes the math, not the facts. State that it should be treated as what it was, which affects the net worth worksheets, and point her back to those before proceeding. If the stated terms contradict the payment history, mark the contradiction rather than writing around it." }
+};
+
+/* ---------- App state and navigation ---------- */
+const state = { answers:{}, idx:0, screen:"intro", notes:{}, done:{}, open:{}, intake:{} };
+const visible = ()=> QUESTIONS.filter(q=> !q.show || q.show(state));
+
+/* ---------- Local saving ----------
+   The browser's localStorage is a small private pocket each browser keeps
+   per page, on this device only; nothing in it is ever transmitted. Some
+   sandboxed previews refuse access to it, so every touch is wrapped in
+   try-catch: where the pocket exists (a normal browser opening this file),
+   progress persists across sessions; where it does not, the tool quietly
+   falls back to session-only memory and everything still works. */
+const store = {
+  ok:(function(){ try{ const t="__edw_probe"; localStorage.setItem(t,"1"); localStorage.removeItem(t); return true; }catch(e){ return false; } })(),
+  save(){ if(!this.ok) return; try{ localStorage.setItem("edwosb_progress_v1", JSON.stringify({answers:state.answers, notes:state.notes, done:state.done, open:state.open, intake:state.intake})); }catch(e){} },
+  clear(){ if(!this.ok) return; try{ localStorage.removeItem("edwosb_progress_v1"); }catch(e){} }
+};
+/* Hydrate: if a previous session left progress in the pocket, restore it
+   before the first render so the page wakes up exactly where she left off. */
+(function(){ if(!store.ok) return; try{
+  const d=JSON.parse(localStorage.getItem("edwosb_progress_v1")||"null");
+  if(d){ state.answers=d.answers||{}; state.notes=d.notes||{}; state.done=d.done||{}; state.open=d.open||{}; state.intake=d.intake||{}; }
+}catch(e){} })();
+
+function begin(){ state.screen="quiz"; state.idx=0; render(); }
+function restart(){ state.answers={}; state.idx=0; state.screen="intro"; state.notes={}; state.done={}; state.open={}; state.intake={}; store.clear(); render(); window.scrollTo({top:0}); }
+/* The skip path: jump straight to results. Any answers already given still
+   personalize the checklist; everything unanswered renders in master mode. */
+function skipToChecklist(){ state.screen="results"; render(); window.scrollTo({top:0}); }
+/* The way back: resume the assessment at the first unanswered question, so a
+   skipper who changes her mind never has to re-answer what she already gave. */
+function resumeQuiz(){ const vis=visible(); const i=vis.findIndex(q=>state.answers[q.id]===undefined); state.idx=(i===-1?0:i); state.screen="quiz"; render(); window.scrollTo({top:0}); }
+function pick(qid, val){ state.answers[qid]=val; store.save(); render(false); }
+function next(){
+  const vis=visible();
+  if(state.idx >= vis.length-1){ state.screen="results"; } else { state.idx++; }
+  render(); window.scrollTo({top:0, behavior:"smooth"});
+}
+function back(){
+  if(state.idx===0){ state.screen="intro"; } else { state.idx--; }
+  render(); window.scrollTo({top:0, behavior:"smooth"});
+}
+
+/* ---------- Verdict: recomputed wholesale from answers ---------- */
+function compute(){
+  const vis=visible();
+  const failures=[]; const flags=new Set(); const econOver=[];
+  let unanswered=0;
+  for(const q of vis){
+    const a=state.answers[q.id]; if(a===undefined){ unanswered++; continue; }
+    if(q.gate && q.gate.failOn.includes(a)) failures.push({q:q.q, reason:q.gate.reason, remedy:q.gate.remedy});
+    if(q.flagOn && q.flagOn.values.includes(a)) flags.add(q.flagOn.flag);
+    if(q.econ){ if(a==="above") econOver.push(q.id); if(a==="close") flags.add("NEAR"); }
+  }
+  const names={E1:"the $850,000 net worth limit", E2:"the $400,000 average income limit", E3:"the $6.5 million total asset limit"};
+  /* A hard-gate failure always wins, even on a partial run, because a fail is
+     a fail. Otherwise any unanswered question means we cannot honestly render
+     a verdict, so the skip path lands on the neutral master checklist. */
+  let type;
+  if(failures.length) type="notyet";
+  else if(unanswered>0) type="master";
+  else if(track(state)==="WOSB") type="wosb-choice";
+  else if(econOver.length) type="wosb-econ";
+  else type="edwosb";
+  return {type, failures, flags:[...flags], econOver:econOver.map(id=>names[id]), unanswered};
+}
+
+/* ---------- Checklist assembly (mirrors the Build Spec blocks) ---------- */
+function buildChecklist(v){
+  const a=state.answers, S=[];
+  /* "Master" mode handles the skip path: wherever an answer is missing, we
+     include the inclusive version of the item with a plain note about when
+     it applies, so skipping yields a complete, honest checklist instead of
+     a broken or silently-wrong one. Answered questions still personalize. */
+  const master = v.type==="master";
+  const und=(id)=> a[id]===undefined;
+  const onEdwosbLane = track(state)==="EDWOSB" && !anyEconFail(state);
+  const edwosbDocs = onEdwosbLane && (v.type==="edwosb" || v.type==="notyet" || master);
+  const needLetter = a.P3 && a.P3!=="never" && a.P3b==="no";
+  /* The item factory now accepts a third argument for help features:
+     links (clickable chips) and g (numbered walkthrough steps). */
+  const item=(t,n,x)=>Object.assign({t,n},x||{});
+
+  /* Block 1: accounts and registrations */
+  const b1=[ item("Login.gov account with two-factor authentication","Use one monitored business email identically across every federal system; mismatched logins sever the data link between SAM and the SBA portal.",{links:[{t:"Create a Login.gov account",u:"https://login.gov"}],g:["Sign up with a monitored business email you will use for every federal system, not a personal address.","Choose a two-factor method you will not lose: an authenticator app or a security key is more reliable than text messages.","Use this exact same credential for SAM.gov and the SBA portal; mismatched logins break the link between the two systems."]}) ];
+  if(und("P3")) b1.push(item("Register the business in SAM.gov, or confirm the existing registration is active and current (free) at sam.gov/entity-registration","Set the purpose to \u201CAll Awards,\u201D never \u201CLoans and Grants.\u201D Legal name and street address must match formation and IRS records exactly; no P.O. boxes.",{links:[{t:"Open SAM.gov entity registration",u:"https://sam.gov/entity-registration"}],g:["Create your Login.gov account first; SAM sign-in runs through it.","Before typing anything, pull your formation document and IRS letter (SS-4 or CP-575) and copy the legal name and street address exactly as written; entity validation matches these against official records, and even \u201CSt.\u201D versus \u201CStreet\u201D can trigger a failure.","Choose the full registration with the purpose \u201CAll Awards,\u201D not the grants-only option.","Work through the core data: TIN or EIN, then the banking details (routing and account number) used for electronic payments.","Select your primary NAICS code and any secondary codes, then enter average annual receipts and employee count.","Complete the Representations and Certifications questionnaires and name your points of contact.","If entity validation fails, upload one accepted document (stamped formation document, IRS letter, utility bill, or bank statement) showing the exact name and street address; documents must be under five years old, and P.O. boxes are rejected.","Submit, then allow about seven to ten business days for the CAGE code to attach automatically; the registration stays pending until it does.","Calendar an annual renewal; an expired SAM registration freezes everything downstream."]}));
+  else if(a.P3==="never") b1.push(item("Register the business in SAM.gov (free) at sam.gov/entity-registration","Set the purpose to \u201CAll Awards,\u201D never \u201CLoans and Grants.\u201D Legal name and street address must match formation and IRS records exactly; no P.O. boxes.",{links:[{t:"Open SAM.gov entity registration",u:"https://sam.gov/entity-registration"}],g:["Create your Login.gov account first; SAM sign-in runs through it.","Before typing anything, pull your formation document and IRS letter (SS-4 or CP-575) and copy the legal name and street address exactly as written; entity validation matches these against official records, and even \u201CSt.\u201D versus \u201CStreet\u201D can trigger a failure.","Choose the full registration with the purpose \u201CAll Awards,\u201D not the grants-only option.","Work through the core data: TIN or EIN, then the banking details (routing and account number) used for electronic payments.","Select your primary NAICS code and any secondary codes, then enter average annual receipts and employee count.","Complete the Representations and Certifications questionnaires and name your points of contact.","If entity validation fails, upload one accepted document (stamped formation document, IRS letter, utility bill, or bank statement) showing the exact name and street address; documents must be under five years old, and P.O. boxes are rejected.","Submit, then allow about seven to ten business days for the CAGE code to attach automatically; the registration stays pending until it does.","Calendar an annual renewal; an expired SAM registration freezes everything downstream."]}));
+  else if(a.P3==="expired"||a.P3==="stale") b1.push(item("Renew and update the SAM.gov registration","Confirm the purpose is \u201CAll Awards\u201D and that the legal name, address, and NAICS codes still match your records exactly. An expired SAM registration halts everything downstream.",{links:[{t:"Open SAM.gov",u:"https://sam.gov/entity-registration"}],g:["Log in at SAM.gov with your Login.gov credential and open the entity record.","Renew or update the registration, confirming the purpose still says \u201CAll Awards.\u201D","Verify the legal name and street address still match your formation and IRS records character for character; if anything changed, expect entity validation to re-run.","Allow processing time before starting the SBA application; the portal cannot claim an inactive registration."]}));
+  else b1.push(item("Confirm the active SAM.gov registration","Verify the purpose is \u201CAll Awards\u201D and that the legal name and address match formation and IRS records to the character.",{links:[{t:"Open SAM.gov",u:"https://sam.gov/entity-registration"}],g:["Log in at SAM.gov and open your entity record.","Check the expiration date and renew if it is within reach; registrations must be updated annually.","Confirm the purpose says \u201CAll Awards\u201D and the legal name and street address match your formation and IRS records exactly; this is also where your UEI and MPIN live for the next steps."]}));
+  if(needLetter) b1.push(item("Notarized Entity Administrator letter","Company letterhead, signed by the President, CEO, or other authorized signature authority, containing the UEI and the administrator\u2019s exact contact details; submitted via an incident ticket at fsd.gov. Required only in your situation, where no current administrator can approve access.",{links:[{t:"Open the Federal Service Desk",u:"https://www.fsd.gov"}],g:["Download the current letter template from the Federal Service Desk and place it on company letterhead.","Have it signed by the President, CEO, or other authorized signature authority.","Make sure the administrator\u2019s name, phone, and email in the letter match the Login.gov account exactly; mismatches are the top rejection reason.","Include the UEI in the letter body and state the account-administration choice the template asks for.","Get it notarized, scan to PDF, then log into fsd.gov, create an incident, select SAM, choose the notarized letter issue type, and attach the file."]}));
+  else if(master && (und("P3") || (a.P3!=="never" && und("P3b")))) b1.push(item("Notarized Entity Administrator letter (only if it applies)","Required only when no current administrator on an existing SAM registration can approve your access. Most applicants, including anyone registering fresh as her own administrator, skip this entirely. When required: company letterhead, signed by the President, CEO, or other authorized signature authority, containing the UEI and exact contact details, submitted via an incident ticket at fsd.gov.",{links:[{t:"Open the Federal Service Desk",u:"https://www.fsd.gov"}],g:["First confirm it applies: the letter is needed only when nobody with current Entity Administrator access can approve your role on an existing registration.","Download the current letter template from the Federal Service Desk and place it on company letterhead.","Have it signed by the President, CEO, or other authorized signature authority, with the administrator\u2019s name, phone, and email matching the Login.gov account exactly.","Include the UEI in the letter body, get it notarized, scan to PDF, then create an incident at fsd.gov, select SAM, choose the notarized letter issue type, and attach the file."]}));
+  if(a.P3!=="active") b1.push(item("Allow for CAGE code assignment","Auto-assigned after SAM submission, typically seven to ten business days; no separate application. Address-format mismatches are the usual cause of delay."));
+  b1.push(item("Create the MySBA Certifications account at certifications.sba.gov","Log in with the exact same Login.gov credential used for SAM.",{links:[{t:"Open MySBA Certifications",u:"https://certifications.sba.gov"}],g:["Go to certifications.sba.gov and sign in with the same Login.gov credential you used for SAM; a different login severs the connection between the two systems.","From the dashboard, start a new application and claim your business using the UEI, EIN, and MPIN from your SAM registration. Keep the TIN and the SAM bank account number handy as well, because the claim fields have varied slightly across portal versions.","When the SAM profile loads, select your entity type exactly as legally filed. This single choice generates your document requirements for the rest of the application, and a wrong selection forces a restart."]}));
+  S.push({h:"Accounts And Registrations", items:b1});
+
+  /* Optional TPC section */
+  if(a.P5==="tpc") S.push({h:"Third-Party Certifier Path", sub:"You chose the dual federal-plus-corporate route. The four SBA-approved certifiers are WBENC, NWBOC, the U.S. Women\u2019s Chamber of Commerce, and the El Paso Hispanic Chamber of Commerce. They review the same documents below, so keep gathering; the difference is where you submit them.", items:[
+    item("Choose a certifier and complete its application","WBENC is the corporate gold standard (site visit, ~90 days, membership fees on a revenue sliding scale); NWBOC and USWCC are faster and cheaper; fees and timelines should be verified at the moment of application.",{links:[{t:"WBENC",u:"https://www.wbenc.org/certification/wosb-certification/"},{t:"NWBOC",u:"https://nwboc.org"},{t:"USWCC",u:"https://www.uswcc.org/certification"}]}),
+    item("After certification, claim the business in MySBA Certifications and upload the certificate plus citizenship proof","The TPC path replaces the heavy SBA document uploads with the certificate itself; SBA performs a truncated review and activates the status in DSBS.")
+  ]});
+
+  /* Block 2: portal data sheet */
+  S.push({h:"Portal Data Sheet (Fill Before Logging In)", sub:"Have these staged so the claim screen never stops you.", items:[
+    item("UEI, EIN, and MPIN from SAM.gov","Also keep the TIN and the SAM bank account number on hand; the claim fields have varied slightly across portal versions.",{g:["UEI: log into SAM.gov and open your entity workspace; the twelve-character Unique Entity ID sits at the top of the entity record.","EIN: it is on the IRS letter you received at formation (the SS-4 confirmation or CP-575 notice); your accountant or payroll provider has it if the letter is missing.","MPIN: this one stumps almost everyone because you created it yourself. The Marketing Partner ID Number is a self-chosen code saved inside the business information section of your SAM registration; log into SAM to view or reset it.","Bank details: the routing and account number live in the financial information section of the same SAM record."]}),
+    item("Legal business name and address exactly as registered in SAM"),
+    item("Entity type as legally filed","The portal generates your upload requirements from this selection, and a wrong choice forces a restart."),
+    item("Primary and secondary NAICS codes"),
+    item("Normal hours of operation"),
+    item("Ownership table: every owner, percentages summing to exactly 100","Must match the governance documents to the decimal; analysts reconcile this against the stock ledger or operating agreement.")
+  ]});
+
+  /* Block 3: citizenship */
+  const b3=[ item("Proof of U.S. citizenship for each qualifying woman","A state-issued birth certificate from a vital records registry (commemorative hospital certificates are rejected), an unexpired U.S. passport or passport card, or a Certificate of Naturalization (N-550 or N-570). Social Security cards are not accepted.",{g:["The easiest path is a current passport; a clear scan of the photo page is enough.","For a birth certificate, order a certified copy from the vital records office of the birth state; the decorative hospital keepsake version is rejected.","If her current legal name differs from the name on the document, pair it with the name change proof so the analyst can connect the two."]}) ];
+  if(a.P2==="no") b3.push(item("Proof of name change","Marriage certificate, state-filed name change order, or the front and back of an unexpired military ID."));
+  else if(master && und("P2")) b3.push(item("Proof of name change (only if her current legal name differs from the citizenship document)","Marriage certificate, state-filed name change order, or the front and back of an unexpired military ID."));
+  S.push({h:"Citizenship And Identity", items:b3});
+
+  /* Block 4: entity documents */
+  const ENT={
+    sp:[ item("DBA or fictitious name certificate, if one exists","Otherwise the IRS SS-4 letter or the most recent Form 1040 Schedule C serves as the foundational document.") ],
+    smllc:[ item("Articles of Organization: original filing and every amendment","Must bear the Secretary of State stamp or official filing receipt."),
+            item("Operating Agreement with all amendments","Signed, with an effective date, identifying the member and her interest."),
+            item("IRS SS-4 letter (EIN issuance)"),
+            item("Meeting minutes, if the Operating Agreement requires them") ],
+    mmllc:[ item("Articles of Organization: original filing and every amendment","Stamped by the Secretary of State."),
+            item("Operating Agreement with all amendments","Signed and dated, identifying every member and interest."),
+            item("Membership ledger or ownership schedule covering 100% of interests"),
+            item("IRS SS-4 letter"),
+            item("Resolutions or minutes appointing the highest officer") ],
+    scorp:null, ccorp:null,
+    pship:[ item("Partnership Agreement with all amendments","Must clearly state each partner class\u2019s percentages and voting rights."),
+            item("DBA certificate, if applicable"),
+            item("IRS SS-4 letter"),
+            item("General partner resolutions or management committee minutes") ]
+  };
+  const CORP=[ item("Articles of Incorporation, stamped, with all amendments"),
+    item("Corporate Bylaws, signed and dated","Or adopted via signed meeting minutes."),
+    item("Stock Ledger: every issuance and transfer with dates, counts, and parties","Must reconcile exactly to the ownership percentages entered in the portal; mismatches are heavily flagged.",{g:["The ledger must show the corporation\u2019s name and, for every issuance and transfer in the company\u2019s history: the date, the parties, the certificate numbers, and the share counts.","Bring it current through today, then total each owner\u2019s shares and confirm the resulting percentages match the bylaws, any shareholder agreements, and what you will type into the portal, to the decimal.","Scan the front and back of every certificate, including canceled ones; analysts read the reverse side for restrictive endorsements and undisclosed transfers."]}),
+    item("Front and back of all issued and canceled stock certificates","Analysts inspect the reverse side for restrictive endorsements."),
+    item("All shareholder or voting agreements, signed and dated by all owners"),
+    item("Board minutes appointing officers") ];
+  /* Universal ownership-and-control items shared by every entity type. In
+     master mode, the buy-sell item appears with its trigger spelled out. */
+  const universal=[];
+  if(state.answers.F6==="yes") universal.push(item("Executed buy-sell or transfer agreements for the recent ownership change","Showing the valuation method and proof of payment."));
+  else if(master && und("F6")) universal.push(item("Executed buy-sell or transfer agreements (only if ownership changed in the last two years)","Showing the valuation method and proof of payment."));
+  universal.push(item("Current detailed resume for each qualifying woman and each officer or director","Education, training, current duties, and exact employment dates for every position; dates must match any outside-employment narrative.",{g:["Use a complete, dates-first format: every position with month and year, plus education, licenses, and training. Gaps and approximations invite questions, so be exact.","Describe her current duties at this business in concrete operational terms: who she hires, what she signs, which decisions are hers alone. This resume is control evidence, not a job application.","Cross-check every date against the outside-employment narrative and her public profiles such as LinkedIn before uploading, because the analyst will perform exactly that comparison."]}));
+  if(a.P1){
+    const b4=(ENT[a.P1]||CORP).slice().concat(universal);
+    S.push({h:"Formation, Ownership, And Control", items:b4});
+  } else {
+    /* No entity type chosen: render each family as its own honest group. */
+    S.push({h:"Formation Documents If A Sole Proprietorship", items:ENT.sp.slice()});
+    S.push({h:"Formation Documents If An LLC", sub:"Single-member LLCs skip the membership ledger.", items:ENT.mmllc.slice()});
+    S.push({h:"Formation Documents If A Corporation", items:CORP.slice()});
+    S.push({h:"Formation Documents If A Partnership", items:ENT.pship.slice()});
+    S.push({h:"Ownership And Control, All Entity Types", items:universal});
+  }
+
+  /* Block 5: EDWOSB financial package */
+  if(edwosbDocs){
+    if(a.P4==="yes"){
+      S.push({h:"EDWOSB Financial Package (8(a) Shortcut)", items:[ item("Most recent 8(a) annual review letter","Or the acceptance letter if in the first program year. Because the two programs share identical economic criteria, this single document replaces the full financial package.") ]});
+    } else {
+      const b5=[ item("SBA Form 413 (Personal Financial Statement), current edition, for each woman relied on for the 51%","Use the edition effective February 13, 2025 (expires August 31, 2027), from sba.gov/document/sba-form-413-personal-financial-statement.",{links:[{t:"Download SBA Form 413",u:"https://www.sba.gov/document/sba-form-413-personal-financial-statement"}],g:["Download the current edition from the SBA link below; older editions show outdated thresholds and invite rejection or questions.","Each woman relied on for the 51 percent completes her own form, and if she is married, her spouse completes a separate one too, unless legally separated with the court-recognized document to show for it.","Work through the supporting sections from documents, not memory: income sources, notes payable, stocks and bonds, real estate parcel by parcel with the mortgage beside each, and other personal property.","Before signing, reconcile the income section against the actual filed tax returns line by line, because the analyst performs exactly that reconciliation."]}),
+        item("Separate SBA Form 413 from each such woman\u2019s spouse","Unless legally separated, in which case upload the court-recognized separation document instead."),
+        item("Three years of federal personal tax returns for each qualifying woman and spouse","Complete: every W-2, K-1, schedule, and attachment.",{g:["\u201CComplete\u201D means every page: the return itself plus every W-2, K-1, schedule, and attachment, for each of the three most recent filed years. A return missing its schedules counts as an incomplete upload and triggers a request for information.","Request full copies from your tax preparer or pull them from your own records; the portal wants the returns themselves, not IRS transcripts.","Combine each year into a single clearly labeled PDF, and keep each file under the portal\u2019s upload size cap."]}),
+        item("Three years of federal business tax returns"),
+        item("Current balance sheet and profit-and-loss statement"),
+        item("Retirement account statements issued within 30 days of submission","For every account claimed as a net worth exclusion, together with account terms documenting the early-withdrawal penalty.",{g:["For every account you claim as a net worth exclusion, order or download an official statement dated within 30 days of the day you will actually submit, which usually means gathering these last.","Also collect the plan terms or disclosure document showing the early-withdrawal penalty, because that penalty is what makes the exclusion valid; without it, the funds count against the $850,000 limit.","Keep both documents paired per account in your file, so each claimed exclusion arrives with its own proof."]}) ];
+      if(state.answers.F5==="yes") b5.push(item("Documentation for assets transferred within the last two years","Proof that each transfer fits an exception: education, medical care, essential support, or a customary special occasion.",{prompt:"F5"}));
+      else if(master && und("F5")) b5.push(item("Documentation for assets transferred within the last two years (only if such transfers happened)","Proof that each transfer fits an exception: education, medical care, essential support, or a customary special occasion.",{prompt:"F5"}));
+      if(state.answers.F8==="yes") b5.push(item("Written explanations for all non-commercial loans","Terms, origination dates, and current repayment status."));
+      else if(master && und("F8")) b5.push(item("Written explanations for non-commercial loans (only if family or other non-bank loans exist)","Terms, origination dates, and current repayment status."));
+      if(a.P6==="yes") b5.push(item("Transmutation or separate-property agreements"));
+      else if(master && und("P6")) b5.push(item("Transmutation or separate-property agreements (community property states only, and only if such agreements exist)"));
+      if(master && und("P4")) b5.push(item("Shortcut for current 8(a) participants","If the business is a current 8(a) participant owned and controlled by women, this entire package is replaced by a single document: the most recent 8(a) annual review letter."));
+      S.push({h:"EDWOSB Financial Package", sub:(master?"For EDWOSB applicants only; WOSB-only applicants skip this entire section. ":"")+"Note: the portal collects the tax returns themselves; a Form 4506-C transcript authorization is not a standard upload for this certification, though SBA can request additional verification during review.", items:b5});
+    }
+  }
+
+  /* Block 6: narrative prep */
+  const N=[]; const f=new Set(v.flags);
+  if(f.has("F1")) N.push(item("Outside Employment Narrative","Drafted before logging in: nature and anticipated duration of the outside work, and exactly how it leaves her control of this business intact.",{prompt:"F1"}));
+  else if(master && und("F1")) N.push(item("Outside Employment Narrative (only if the owner holds outside work or runs another business)","Drafted before logging in: nature and anticipated duration of the outside work, and exactly how it leaves her control of this business intact.",{prompt:"F1"}));
+  if(f.has("F2")) N.push(item("Compensation Justification","The written commercially-reasonable case for the higher-paid specialist, or documentation of her elected lower compensation.",{prompt:"F2"}));
+  else if(master && und("F2")) N.push(item("Compensation Justification (only if a non-qualifying person earns more than the owner)","The written commercially-reasonable case for the higher-paid specialist, or documentation of her elected lower compensation.",{prompt:"F2"}));
+  if(f.has("F4")) N.push(item("Spouse Disclosure Preparation","A clear accounting of the spouse\u2019s role, loans, or guarantees, ready for the financial screens.",{prompt:"F4"}));
+  else if(master && onEdwosbLane && (und("F4a") || (a.F4a==="yes" && und("F4b")))) N.push(item("Spouse Disclosure Preparation (only if a spouse is involved with the business)","A clear accounting of the spouse\u2019s role, loans, or guarantees, ready for the financial screens.",{prompt:"F4"}));
+  if(f.has("F6")) N.push(item("Chain-Of-Custody Explanation","The history of every equity transfer, reconciling the documents to the portal entries.",{prompt:"F6"}));
+  else if(master && und("F6")) N.push(item("Chain-Of-Custody Explanation (only if ownership has changed)","The history of every equity transfer, reconciling the documents to the portal entries.",{prompt:"F6"}));
+  if(f.has("F8")) N.push(item("Non-Commercial Loan Explanations","One short narrative per loan.",{prompt:"F8"}));
+  else if(master && onEdwosbLane && und("F8")) N.push(item("Non-Commercial Loan Explanations (only if such loans exist)","One short narrative per loan.",{prompt:"F8"}));
+  if(N.length) S.push({h:"Narrative Preparation", sub:"These free-text fields appear dynamically inside the portal. Drafting them before logging in is the single biggest time-saver in the application.", items:N});
+
+  /* Block 7: standards */
+  S.push({h:"Formatting And Submission Standards", items:[
+    item("All uploads as PDF, individual files under 25 MB","Split large records logically. Verify both specs against the live portal before submitting; ingestion rules can change quietly."),
+    item("Every historical document bears valid signatures","Unsigned operating agreements and shareholder agreements are a leading cause of delay."),
+    item("Certified line-by-line English translations for anything not in English"),
+    item("Only the Qualified Owner signs and submits","The attestation is made under penalty of law, with False Claims Act exposure for misstatements. Accurate beats estimated, every time.")
+  ]});
+  return S;
+}
+
+/* ---------- Rendering ---------- */
+const app=document.getElementById("app");
+const esc=(s)=>s; /* content is authored, not user-supplied */
+
+function render(animate=true){
+  if(state.screen==="intro") return renderIntro();
+  if(state.screen==="results") return renderResults();
+  renderQuestion(animate);
+}
+
+function renderIntro(){
+  app.innerHTML=`<div class="reveal">
+    <span class="eyebrow">About 4 Minutes</span>
+    <h2 class="qtext" style="margin-top:18px">Before you gather a single document, find out what your application actually needs.</h2>
+    <p class="help">You will answer roughly twenty questions about your business. At the end you get an honest readiness verdict, a document checklist matched to your exact entity and situation, and a prep list for the portal\u2019s trickiest fields.</p>
+    <div class="notice info"><b>Private by design.</b> Everything you do here stays on your own device. Your answers, checkmarks, and notes save automatically in your own browser so you can close the page and pick up where you left off, and none of it is ever sent anywhere. You can also download a backup file of your progress at any time and restore it later, even on a new device. The financial questions are answered with private worksheets; you never type a dollar figure. \u201CStart over\u201D erases everything saved.</div>
+    <div class="navrow"><button class="back" onclick="skipToChecklist()">Skip the questions \u2192 master checklist</button><button class="cta" onclick="begin()">Begin the assessment <span class="arr">\u2197</span></button></div>
+    <div class="navrow" style="margin-top:2px"><button class="back" onclick="restoreClick()">Restore a saved backup file</button><span class="copyfb" id="restorefb"></span></div>
+  </div>`;
+}
+
+function renderQuestion(animate){
+  const vis=visible();
+  if(state.idx>=vis.length){ state.idx=vis.length-1; } /* clamp if branching shrank the list */
+  const q=vis[state.idx]; const a=state.answers[q.id];
+  const pct=Math.round(((state.idx)/vis.length)*100);
+  const ntc=(a!==undefined && q.notice) ? q.notice(a,state) : null;
+  app.innerHTML=`<div class="${animate?"reveal":""}">
+    <div class="qmeta"><span class="eyebrow">${q.stage}</span><span class="count">Question ${state.idx+1} of ${vis.length}</span></div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <h2 class="qtext">${q.q}</h2>
+    <p class="help">${q.help}</p>
+    ${q.ws?`<details class="ws"><summary>Open the private worksheet</summary><div class="wsbody">${WS[q.ws]}</div></details>`:""}
+    ${q.options.map(o=>`<button class="opt ${a===o.v?"sel":""}" onclick="pick('${q.id}','${o.v}')"><span class="dot"></span>${o.l}</button>`).join("")}
+    ${ntc?`<div class="notice ${ntc.tone}">${ntc.html}</div>`:""}
+    <div class="navrow">
+      <span><button class="back" onclick="back()">\u2190 Back</button><button class="back" onclick="skipToChecklist()" style="margin-left:14px">Skip to checklist</button></span>
+      <button class="cta" onclick="next()" ${a===undefined?"disabled":""}>${state.idx===vis.length-1?"See my results":"Continue"} <span class="arr">\u2197</span></button>
+    </div>
+  </div>`;
+}
+
+function renderResults(){
+  const v=compute(); const cl=buildChecklist(v);
+  const nItems=cl.reduce((n,s)=>n+s.items.length,0);
+  let cls,tag,head,body;
+  if(v.type==="notyet"){
+    cls="red"; tag="Verdict: Not Yet"; head="There is a fixable problem to solve first.";
+    body=`Based on your answers, the application would currently fail. The rules permit reapplying at any time once each issue is resolved, and a declined application carries a 90-day wait, so fixing these first protects your timeline.`;
+  } else if(v.type==="master"){
+    cls="neutral"; tag="The Master Checklist"; head="Every document, with notes on when each applies.";
+    body=`You skipped ahead, so this is the master version: every document any WOSB or EDWOSB applicant might need, ${nItems} items across ${cl.length} categories, each conditional item labeled with when it applies. Anything you did answer is already reflected below. For a checklist trimmed to your exact entity and situation, plus an honest readiness verdict, the assessment takes about four minutes, and your answers so far are saved.`;
+  } else if(v.type==="wosb-econ"){
+    cls="amber"; tag="Verdict: Ready For WOSB"; head="EDWOSB is out of reach, but the WOSB door is open.";
+    body=`Your business appears to meet every WOSB requirement. The EDWOSB tier is unavailable because the answers exceeded ${v.econOver.join(" and ")}, and that is worth knowing now rather than after weeks of paperwork: EDWOSB-restricted contracts would be out of reach, but the full WOSB set-aside market remains open. Your checklist below is the WOSB version, which skips the personal financial package entirely.`;
+  } else if(v.type==="wosb-choice"){
+    cls="green"; tag="Verdict: Ready For WOSB"; head="Your business appears ready for WOSB certification.";
+    body=`This is a readiness assessment, not an SBA determination. Your personalized checklist contains ${nItems} items across ${cl.length} categories. Work the registration items first; everything else waits on them.`;
+  } else {
+    cls=v.flags.length?"amber":"green"; tag=v.flags.length?"Verdict: Ready, With Items To Address":"Verdict: Ready For EDWOSB";
+    head=v.flags.length?"You appear eligible, with a short fix-first list.":"Your business appears to meet the EDWOSB criteria.";
+    body=v.flags.length
+      ? `Your business appears to meet the structural and economic criteria for EDWOSB, and ${v.flags.length===1?"one item needs":v.flags.length+" items need"} attention before you apply, because each is a documented denial pattern. The cards below explain every one, and your checklist includes a prep asset for each. The full checklist contains ${nItems} items across ${cl.length} categories.`
+      : `Based on your answers, your business appears to meet the structural and economic criteria for EDWOSB certification. This is a readiness assessment, not an SBA determination. Your personalized checklist contains ${nItems} items across ${cl.length} categories. Work the registration items first; everything else waits on them.`;
+  }
+  app.innerHTML=`<div class="reveal">
+    <div class="banner ${cls}"><span class="vtag">${tag}</span><h2>${head}</h2><p>${body}</p></div>
+    ${v.failures.length?`<div class="sect"><h3>What Would Need To Change</h3><div class="sub">Each item names the failed requirement and the remedy.</div>${v.failures.map(f=>`<div class="flagcard"><h4>${f.q}</h4><p>${f.reason}</p><p style="margin-top:8px"><b>Remedy:</b> ${f.remedy}</p></div>`).join("")}</div>`:""}
+    ${v.flags.length?`<div class="sect"><h3>Items To Address Before You Apply</h3><div class="sub">None of these is disqualifying. Each is a known denial pattern with a known fix.</div>${v.flags.map(k=>{const f=FLAGS[k];return `<div class="flagcard"><h4>${f.title}</h4><p>${f.risk}</p><span class="asset">Included: ${f.asset}</span></div>`}).join("")}</div>`:""}
+    <div class="sect"><h3>Your Personalized Document Checklist</h3><div class="sub">Built from your answers. Each section below opens with a tap; the header shows your progress at a glance. Inside, check items off as you gather them, open \u201CWalk me through it\u201D under the bigger items for step-by-step help, and jot a note to yourself under any item. Print this page to work from paper; every section prints fully open, and any notes you typed print too.</div>
+      <div class="secrow noprint"><button class="back" onclick="allSecs(true)">Expand all sections</button><button class="back" onclick="allSecs(false)" style="margin-left:14px">Collapse all</button></div>
+      ${cl.map(s=>{const sk=slug(s.h); const doneCt=s.items.filter(it=>state.done[slug(it.t)]).length; return `<div class="ckgroup${state.open[sk]?"":" closed"}" data-sec="${sk}"><button class="ghead" onclick="toggleSec('${sk}')"><h4>${s.h}</h4><span class="gright"><span class="gcount">${doneCt} of ${s.items.length} gathered</span><span class="chev">\u2304</span></span></button><div class="gbody">${s.sub?`<p class="sub" style="margin:8px 0 4px">${s.sub}</p>`:""}${s.items.map(it=>{const k=slug(it.t);return `<div class="ck${state.done[k]?" done":""}" data-ck="${k}"><button class="box" onclick="toggleCk('${k}')" aria-label="check item"></button><div style="flex:1"><p class="t">${it.t}</p>${it.n?`<p class="n">${it.n}</p>`:""}${it.links?`<div class="lnks">${it.links.map(L=>`<a class="lnk" href="${L.u}" target="_blank" rel="noopener">${L.t} \u2197</a>`).join("")}</div>`:""}${it.g?`<details class="how"><summary>Walk me through it</summary><ol>${it.g.map(st=>`<li>${st}</li>`).join("")}</ol></details>`:""}${it.prompt?draftKit(it.prompt):""}<textarea class="notebox" rows="2" data-k="${k}" oninput="saveNote(this)" placeholder="Your note to self (saved on this device only; never sent anywhere)"></textarea></div></div>`}).join("")}</div></div>`}).join("")}
+    </div>
+    <div class="navrow noprint">
+      <span><button class="back" onclick="restart()">Start over</button>${v.type==="master"?`<button class="back" onclick="resumeQuiz()" style="margin-left:14px">Answer the questions instead</button>`:""}</span>
+      <button class="cta ghost" onclick="window.print()">Print my checklist <span class="arr">\u2197</span></button>
+    </div>
+    <div class="navrow noprint" style="margin-top:2px">
+      <span><button class="back" onclick="backupProgress()">Back up my progress</button><button class="back" onclick="restoreClick()" style="margin-left:14px">Restore a backup</button></span>
+      <span class="copyfb" id="restorefb"></span>
+    </div>
+    <div class="legal">
+      <p><b>Program status notice.</b> The WOSB and EDWOSB programs are active and processing applications. Legislation introduced in April 2026 (S. 4390 and H.R. 8511) proposes eliminating these programs, and a March 2026 executive order has increased scrutiny of contracting preferences. No court has paused new certifications. We flag this so you can make an informed decision about timing; certification today remains fully valid under current law.</p>
+      <p><b>Assistive only.</b> This tool helps you organize, understand, and prepare. It does not determine your eligibility, guarantee certification, or provide legal advice. Eligibility determinations are made solely by the U.S. Small Business Administration. Verify every figure and document yourself before submission; your portal attestation is made under penalty of law.</p>
+    </div>
+  </div>`;
+  /* Re-populate any saved notes by assigning .value directly rather than
+     writing user text into the HTML string. This keeps typed content from
+     ever being interpreted as markup, and it means notes survive leaving
+     the results screen and coming back. */
+  document.querySelectorAll(".notebox").forEach(tb=>{ const k=tb.dataset.k; if(state.notes[k]){ tb.value=state.notes[k]; tb.classList.add("has-note"); } });
+  /* Intake answers refill the same safe way: direct value assignment, so
+     typed text is never interpreted as markup and survives re-renders. */
+  document.querySelectorAll(".pqbox").forEach(tb=>{ const k=tb.dataset.pk; if(state.intake[k]) tb.value=state.intake[k]; });
+}
+
+/* A stable key derived from the item title, so checkmarks and notes attach
+   to the item itself rather than its position, which can shift when answers
+   change the checklist's composition. */
+function slug(t){ return t.toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,70); }
+function toggleCk(k){
+  state.done[k]=!state.done[k]; store.save();
+  const el=document.querySelector('[data-ck="'+k+'"]');
+  if(el){
+    el.classList.toggle("done", !!state.done[k]);
+    /* Update the live progress count in this item's section header, so the
+       collapsed view always reads like an accurate dashboard. */
+    const grp=el.closest(".ckgroup");
+    if(grp){ const badge=grp.querySelector(".gcount"); if(badge){ const total=grp.querySelectorAll(".ck").length; const done=grp.querySelectorAll(".ck.done").length; badge.textContent=done+" of "+total+" gathered"; } }
+  }
+}
+function saveNote(tb){ state.notes[tb.dataset.k]=tb.value; store.save(); tb.classList.toggle("has-note", tb.value.trim().length>0); }
+/* Section toggles flip a class directly rather than re-rendering, so the
+   scroll position holds steady and open walkthroughs stay open. */
+function toggleSec(k){
+  state.open[k]=!state.open[k]; store.save();
+  const grp=document.querySelector('[data-sec="'+k+'"]');
+  if(grp) grp.classList.toggle("closed", !state.open[k]);
+}
+function allSecs(open){
+  document.querySelectorAll("[data-sec]").forEach(grp=>{ const k=grp.dataset.sec; state.open[k]=open; grp.classList.toggle("closed", !open); });
+  store.save();
+}
+
+/* ---------- The drafting kit ----------
+   Renders the intake panel under a narrative item: the plain-language
+   questions as answer boxes, plus the button that assembles the complete
+   prompt (constitution first, then the asset prompt, then her answers). */
+function draftKit(k){
+  const P=PROMPTS[k]; if(!P) return "";
+  return `<details class="how kit"><summary>Prepare my drafting prompt</summary><div class="kitbody"><p class="kitsub">Answer in plain language below. Blanks are fine; the assembled prompt marks anything missing so the AI flags it instead of guessing. Your answers save on this device only. When ready, copy the prompt and paste it into a fresh Claude conversation.</p>${P.intake.map((q,i)=>`<div class="pq"><label class="pqlab">${i+1}. ${q}</label><textarea class="pqbox" rows="2" data-pk="${k}:${i}" oninput="saveIntake(this)" placeholder="Answer in plain language"></textarea></div>`).join("")}<div class="copyrow"><button class="cta ghost" type="button" onclick="copyPrompt('${k}')">Copy my drafting prompt <span class="arr">\u2197</span></button><span class="copyfb" id="fb-${k}"></span></div></div></details>`;
+}
+function saveIntake(tb){ state.intake[tb.dataset.pk]=tb.value; store.save(); }
+
+/* Assemble the full prompt in governing order: constitution, asset prompt,
+   intake answers, closing instruction. Unanswered questions become explicit
+   NOT YET ANSWERED markers, which Rule two converts into [NEEDED] homework
+   in the draft rather than invented details. */
+function copyPrompt(k){
+  const P=PROMPTS[k]; if(!P) return;
+  const L=[CONSTITUTION,"","---","","ASSET PROMPT: "+P.title,"","THE TEST YOU ARE WRITING TO. "+P.test,"","INTAKE QUESTIONS AND THE APPLICANT\u2019S ANSWERS."];
+  P.intake.forEach((q,i)=>{ const a=(state.intake[k+":"+i]||"").trim(); L.push((i+1)+". "+q); L.push("Answer: "+(a||"[NOT YET ANSWERED]")); L.push(""); });
+  L.push("DRAFTING INSTRUCTIONS. "+P.draft,"","STOP RULES SPECIFIC TO THIS ASSET. "+P.stops,"","Apply the Drafting Constitution above. If the stop rules trigger, say so plainly instead of drafting. Otherwise produce the draft now, ending with the VERIFY BEFORE USE list.");
+  const txt=L.join("\n");
+  const fb=document.getElementById("fb-"+k);
+  const done=()=>{ if(fb) fb.textContent="Copied. Open a fresh Claude conversation and paste."; };
+  /* Clipboards vary by environment, so try the modern API first and fall
+     back to the older selection method if the browser refuses. */
+  try{ navigator.clipboard.writeText(txt).then(done, function(){ fallbackCopy(txt, done); }); }
+  catch(e){ fallbackCopy(txt, done); }
+}
+function fallbackCopy(txt, done){
+  const ta=document.createElement("textarea"); ta.value=txt;
+  ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); done(); }catch(e){ alert("Copying was blocked by the browser. Select the text in the panel and copy it manually."); }
+  document.body.removeChild(ta);
+}
+
+/* ---------- Backup and restore ----------
+   The backup is a small dated file containing everything the user entered.
+   It is the insurance policy against cleared browsers, switched devices,
+   and Safari housekeeping: as long as she has the file, she has her work. */
+function backupProgress(){
+  const data={v:1, saved:new Date().toISOString(), answers:state.answers, notes:state.notes, done:state.done, open:state.open, intake:state.intake};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="edwosb-progress-"+new Date().toISOString().slice(0,10)+".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+  const fb=document.getElementById("restorefb");
+  if(fb) fb.textContent="Backup downloaded. Keep the file somewhere safe, like your email or Files.";
+}
+function restoreClick(){
+  const inp=document.createElement("input");
+  inp.type="file"; inp.accept="application/json,.json";
+  inp.style.position="fixed"; inp.style.opacity="0";
+  inp.onchange=function(){ restoreFile(inp); document.body.removeChild(inp); };
+  document.body.appendChild(inp); inp.click();
+}
+function restoreFile(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const fb=document.getElementById("restorefb");
+  const r=new FileReader();
+  r.onload=function(){
+    try{
+      const d=JSON.parse(r.result);
+      /* Validate before touching anything: a wrong file changes nothing. */
+      const looksRight = d && typeof d==="object" && (d.answers||d.notes||d.done||d.intake);
+      if(!looksRight) throw new Error("not a backup");
+      state.answers=d.answers||{}; state.notes=d.notes||{}; state.done=d.done||{}; state.open=d.open||{}; state.intake=d.intake||{};
+      store.save();
+      state.screen="results"; render(); window.scrollTo({top:0});
+      const fb2=document.getElementById("restorefb");
+      if(fb2) fb2.textContent="Backup restored. Everything below is from your file.";
+    }catch(e){ if(fb) fb.textContent="That file doesn\u2019t look like a backup from this tool. Nothing was changed."; }
+  };
+  r.readAsText(f);
+}
+
+render();
+</script>
+</body>
+</html>
